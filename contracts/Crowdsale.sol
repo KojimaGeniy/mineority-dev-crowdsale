@@ -17,7 +17,7 @@ contract Crowdsale is Pausable{
         uint256 goal;
         uint256 weiRaised;
         string projectInfoHash;
-        address multiSig;
+        address multiSigEscrow;
         mapping(address => uint256) backerFunded;
         ProjectStatus status;
         uint256 closingTime;
@@ -47,10 +47,10 @@ contract Crowdsale is Pausable{
     function createProject(
         uint256 _goal,
         string _projectInfoHash,
-        address _escrow,
+        address[] _escrow,
         uint256 _closingTime) public whenNotPaused
     {
-        // MultiSigEscrow instance = new MultiSigEscrow(address(0),address(0),address(0));
+        MultiSigEscrow instance = new MultiSigEscrow(_escrow,2);
         //It now stands for a year(365 days)(31536000 seconds)
         require(_closingTime < 365 days, "More than five years bro");
 
@@ -58,7 +58,7 @@ contract Crowdsale is Pausable{
             goal: _goal,
             weiRaised: 0,
             projectInfoHash: _projectInfoHash,
-            multiSig: _escrow,
+            multiSigEscrow: address(instance),
             status: ProjectStatus.InProgress,
             closingTime: now + _closingTime
         });
@@ -75,7 +75,7 @@ contract Crowdsale is Pausable{
             _project.goal,
             _project.weiRaised,
             _project.projectInfoHash,
-            _project.multiSig,
+            _project.multiSigEscrow,
             _project.closingTime
         );        
     }
@@ -103,7 +103,8 @@ contract Crowdsale is Pausable{
         _project.weiRaised = _project.weiRaised.add(weiAmount);
         _project.backerFunded[msg.sender] = _project.backerFunded[msg.sender].add(weiAmount);
 
-        _project.multiSig.transfer(weiAmount);
+        // Why is it even here?
+        _forwardFunds(_projectId);
     }
 
     /**
@@ -116,7 +117,7 @@ contract Crowdsale is Pausable{
         require(_project.status == ProjectStatus.Refunded);
         require(!goalReached(_projectId));
 
-        // escrow.withdraw(msg.sender);
+        MultiSigEscrow(_project.multiSigEscrow).withdraw(msg.sender);
     }
 
     /**
@@ -141,14 +142,13 @@ contract Crowdsale is Pausable{
 
         if (goalReached(_projectId)) {
             _project.status = ProjectStatus.Funded; 
-        //   escrow.close();
-        //   escrow.beneficiaryWithdraw();
+            MultiSigEscrow(_project.multiSigEscrow).close();
             emit ProjectFunded(_projectId, _project.weiRaised);
 
         } else {
             _project.status = ProjectStatus.Refunded;
             emit ProjectRefunded(_projectId);
-        //   escrow.enableRefunds();
+            MultiSigEscrow(_project.multiSigEscrow).enableRefunds();
         }    
     }
 
@@ -156,7 +156,9 @@ contract Crowdsale is Pausable{
   /**
    * @dev Crowdsale fund forwarding, sending funds to escrow.
    */
-    function _forwardFunds() internal {
-        // escrow.deposit.value(msg.value)(msg.sender);
+    function _forwardFunds(uint256 _projectId) internal {
+        Project memory _project = allProjects[_projectId];
+
+        MultiSigEscrow(_project.multiSigEscrow).deposit.value(msg.value)(msg.sender);
     }
 }
