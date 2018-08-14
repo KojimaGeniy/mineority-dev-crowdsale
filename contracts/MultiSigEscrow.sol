@@ -15,8 +15,6 @@ contract MultiSigEscrow is RefundEscrow{
     event Execution(uint indexed transactionId);
     event ExecutionFailure(uint indexed transactionId);
     event Deposit(address indexed sender, uint value);
-    event OwnerAddition(address indexed owner);
-    event OwnerRemoval(address indexed owner);
     event RequirementChange(uint required);
 
     /*
@@ -113,64 +111,6 @@ contract MultiSigEscrow is RefundEscrow{
 
     // Place it somewhere where transaction creating emits
     //     require(state == State.Closed);
-
-    // nahuy eto ne nado ponyal
-
-
-    /// @dev Allows to add a new owner. Transaction has to be sent by wallet.
-    /// @param owner Address of new owner.
-    function addOwner(address owner)
-        public
-        onlyWallet
-        ownerDoesNotExist(owner)
-        notNull(owner)
-        validRequirement(owners.length + 1, required)
-    {
-        isOwner[owner] = true;
-        owners.push(owner);
-        emit OwnerAddition(owner);
-    }
-
-    /// @dev Allows to remove an owner. Transaction has to be sent by wallet.
-    /// @param owner Address of owner.
-    function removeOwner(address owner)
-        public
-        onlyWallet
-        ownerExists(owner)
-    {
-        isOwner[owner] = false;
-        for (uint i=0; i<owners.length - 1; i++)
-            if (owners[i] == owner) {
-                owners[i] = owners[owners.length - 1];
-                break;
-            }
-        owners.length -= 1;
-        if (required > owners.length)
-            changeRequirement(owners.length);
-        emit OwnerRemoval(owner);
-    }
-
-    /// @dev Allows to replace an owner with a new owner. Transaction has to be sent by wallet.
-    /// @param owner Address of owner to be replaced.
-    /// @param newOwner Address of new owner.
-    function replaceOwner(address owner, address newOwner)
-        public
-        onlyWallet
-        ownerExists(owner)
-        ownerDoesNotExist(newOwner)
-    {
-        for (uint i=0; i<owners.length; i++)
-            if (owners[i] == owner) {
-                owners[i] = newOwner;
-                break;
-            }
-        isOwner[owner] = false;
-        isOwner[newOwner] = true;
-        emit OwnerRemoval(owner);
-        emit OwnerAddition(newOwner);
-    }
-
-
 
 
 
