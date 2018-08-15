@@ -23,10 +23,6 @@ contract Crowdsale is Pausable{
         uint256 closingTime;
     }
 
-    // TEST MOVING INSTANCE TAKING INTO ANOTHER FUNCTION HOW IT WORKS
-    // AND IF ITS MORE EFFICIENT FOR GAS COSTS
-
-
     Project[] internal allProjects;
 
     event ProjectCreated(uint256 _projectId);
@@ -48,9 +44,10 @@ contract Crowdsale is Pausable{
         uint256 _goal,
         string _projectInfoHash,
         address[] _escrow,
+        uint256 _confirmationsNumber,
         uint256 _closingTime) public whenNotPaused
     {
-        MultiSigEscrow instance = new MultiSigEscrow(_escrow,2);
+        MultiSigEscrow instance = new MultiSigEscrow(_escrow,_confirmationsNumber);
         //It now stands for a year(365 days)(31536000 seconds)
         require(_closingTime < 365 days, "More than five years bro");
 
@@ -103,8 +100,7 @@ contract Crowdsale is Pausable{
         _project.weiRaised = _project.weiRaised.add(weiAmount);
         _project.backerFunded[msg.sender] = _project.backerFunded[msg.sender].add(weiAmount);
 
-        // Why is it even here?
-        _forwardFunds(_projectId);
+        MultiSigEscrow(_project.multiSigEscrow).deposit.value(msg.value)(msg.sender);
     }
 
     /**
@@ -113,9 +109,7 @@ contract Crowdsale is Pausable{
     function claimRefund(uint256 _projectId) public {
         Project memory _project = allProjects[_projectId];
 
-        // We dont' really need two checks do we?
         require(_project.status == ProjectStatus.Refunded);
-        require(!goalReached(_projectId));
 
         MultiSigEscrow(_project.multiSigEscrow).withdraw(msg.sender);
     }
@@ -150,15 +144,5 @@ contract Crowdsale is Pausable{
             emit ProjectRefunded(_projectId);
             MultiSigEscrow(_project.multiSigEscrow).enableRefunds();
         }    
-    }
-
-
-  /**
-   * @dev Crowdsale fund forwarding, sending funds to escrow.
-   */
-    function _forwardFunds(uint256 _projectId) internal {
-        Project memory _project = allProjects[_projectId];
-
-        MultiSigEscrow(_project.multiSigEscrow).deposit.value(msg.value)(msg.sender);
     }
 }

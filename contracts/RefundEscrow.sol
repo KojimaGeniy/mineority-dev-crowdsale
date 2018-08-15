@@ -30,6 +30,11 @@ contract RefundEscrow is Ownable, ConditionalEscrow {
    * @param _refundee The address funds will be sent to if a refund occurs.
    */
   function deposit(address _refundee) public payable {
+    
+    // This functions should be called be owner(master contract) 
+    // only, otherwise it allows to deposit after expiration,
+    // or place expiration timer here
+    
     require(state == State.Active);
     super.deposit(_refundee);
   }
