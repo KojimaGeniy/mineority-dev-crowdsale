@@ -1,5 +1,6 @@
 const { assert } = require('chai');  
 const Web3 = require('web3');
+const { increaseTime } = require("./utils");
 const web3 = new Web3(Web3.givenProvider);
 
 const Crowdsale = artifacts.require("./Crowdsale")
@@ -8,16 +9,12 @@ const MultiSig = artifacts.require("./MultiSigEscrow")
 contract('Crowdsale', function(accounts) {
   const [firstAccount, secondAccount,thirdAccount] = accounts;
   
-  function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
   before(async () => {
     SaleInstance = await Crowdsale.new();
   });
 
   it("Creates project", async () => {
-    await SaleInstance.createProject(1500,"0xd89a3fa2ddbed0a17fa2954b1060f41591c216155b688a7b5af5a2d7c003bb11",[secondAccount,thirdAccount],2,3);
+    await SaleInstance.createProject(1500,"0xd89a3fa2ddbed0a17fa2954b1060f41591c216155b688a7b5af5a2d7c003bb11",[secondAccount,thirdAccount],2,120);
     assert.notEqual((await SaleInstance.getProject.call(0))[0],0,"Project creation didn't go well");
     assert.isFalse(await SaleInstance.goalReached.call(0))
   });
@@ -34,7 +31,7 @@ contract('Crowdsale', function(accounts) {
   });
 
   it("Fails to fund after expiration", async () => {
-    await sleep(4000);
+    increaseTime(121);
     try {
       await SaleInstance.fundProject(0,{value: 800});
       assert.fail();
