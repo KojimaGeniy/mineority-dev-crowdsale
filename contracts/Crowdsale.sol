@@ -1,10 +1,10 @@
 pragma solidity ^0.4.24;
 
-import "openzeppelin-solidity/contracts/lifecycle/Pausable.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 import "./MultiSigEscrow.sol";
+import "./Whitelist.sol";
 
-contract Crowdsale is Pausable{
+contract Crowdsale is Whitelist{
     using SafeMath for uint256;
     
     enum ProjectStatus {
@@ -25,7 +25,11 @@ contract Crowdsale is Pausable{
 
     Project[] internal allProjects;
 
+    /// @dev Approved
+    uint256[] public approvedProjects;
+
     event ProjectCreated(uint256 _projectId);
+    event ProjectDeposited(uint256 _projectId, address _baker, uint256 _amount);
     event ProjectFunded(uint256 _projectId,uint256 _weiRaised);
     event ProjectRefunded(uint256 _projectId);
 
@@ -45,11 +49,11 @@ contract Crowdsale is Pausable{
         string _projectInfoHash,
         address[] _escrow,
         uint256 _confirmationsNumber,
-        uint256 _closingTime) public whenNotPaused
+        uint256 _closingTime) public whenNotPaused onlyIfWhitelisted(msg.sender) /*ownerOnly*/
     {
         MultiSigEscrow instance = new MultiSigEscrow(_escrow,_confirmationsNumber);
         //It now stands for a year(365 days)(31536000 seconds)
-        require(_closingTime < 365 days, "More than five years bro");
+        require(_closingTime < 183 days, "More than five years bro");
 
         Project memory _project = Project({
             goal: _goal,
@@ -87,7 +91,7 @@ contract Crowdsale is Pausable{
     * @dev Fund the chosen project, requires it to be open and not expired
       @param _projectId Contract creator.
     */
-    function fundProject(uint256 _projectId) public payable onlyWhileOpen(_projectId) {
+    function fundProject(uint256 _projectId) public payable onlyWhileOpen(_projectId) onlyIfWhitelisted(msg.sender) {
         // Check if this allocation is necessary for readability at least
         uint256 weiAmount = msg.value;
 
@@ -99,8 +103,8 @@ contract Crowdsale is Pausable{
         // update state
         _project.weiRaised = _project.weiRaised.add(weiAmount);
         _project.backerFunded[msg.sender] = _project.backerFunded[msg.sender].add(weiAmount);
-
         MultiSigEscrow(_project.multiSigEscrow).deposit.value(msg.value)(msg.sender);
+        emit ProjectDeposited(_projectId,msg.sender,weiAmount);
     }
 
     /**
@@ -129,6 +133,7 @@ contract Crowdsale is Pausable{
     */
     function finalize(uint256 _projectId) public onlyOwner {
         // Should be changed to owner of the project (?)
+        // Better to be platform admin
         Project storage _project = allProjects[_projectId];
 
         // Check if they are checking for Finalization, it may not be needless

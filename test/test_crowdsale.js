@@ -14,9 +14,19 @@ contract('Crowdsale', function(accounts) {
   });
 
   it("Creates project", async () => {
+    await SaleInstance.addAddressToWhitelist("0x627306090abab3a6e1400e9345bc60c78a8bef57")
     await SaleInstance.createProject(1500,"0xd89a3fa2ddbed0a17fa2954b1060f41591c216155b688a7b5af5a2d7c003bb11",[secondAccount,thirdAccount],2,120);
     assert.notEqual((await SaleInstance.getProject.call(0))[0],0,"Project creation didn't go well");
     assert.isFalse(await SaleInstance.goalReached.call(0))
+  });
+  
+  it("Fails to fund non-whitelisted user", async () => {
+    try {  
+      await SaleInstance.fundProject(0,{value: 800,from: secondAccount});    
+      assert.fail();
+    } catch (err) {
+      assert.ok(/revert/.test(err.message));
+    }
   });
 
   it("Funds the project", async () => {
@@ -50,6 +60,7 @@ contract('MultiSig', function(accounts) {
   });
 
   it("Creates project and checks for MultiSig", async () => {
+    await SaleInstance.addAddressToWhitelist("0x627306090abab3a6e1400e9345bc60c78a8bef57")
     await SaleInstance.createProject(1500,"0xd89a3fa2ddbed0a17fa2954b1060f41591c216155b688a7b5af5a2d7c003bb11",[secondAccount,thirdAccount],2,4);
     MultiSigInstance = MultiSig.at((await SaleInstance.getProject.call(0))[3])
     assert.equal(await MultiSigInstance.required.call(),2)
@@ -101,6 +112,7 @@ contract('MultiSig', function(accounts) {
   });
 
   it("Allows bakers to refund after unsuccessful finalization", async () => {
+    await SaleInstance.addAddressToWhitelist("0xf17f52151ebef6c7334fad080c5704d77216b732")    
     await SaleInstance.createProject(1500,"0xd89a3fa2ddbed0a17fa2954b1060f41591c216155b688a7b5af5a2d7c003bb11",[secondAccount,thirdAccount],2,4);
     await SaleInstance.fundProject(1,{from: secondAccount,value: 1400});
     await SaleInstance.finalize(1);
